@@ -1,0 +1,335 @@
+	
+Label Root
+{
+	Son: SECTOR
+	Label SECTOR
+	{
+		Son: FIRM
+		Label FIRM
+		{
+			Var: p
+			Var: dp
+			Var: c
+			Param: theta
+			Param: mu
+			Param: avg
+			Param: sd
+
+		}
+
+		Var: mp
+		Var: mp_2
+		Var: ap_2
+		Var: ap
+		Var: exit
+		Param: switch_entry
+		Var: entry
+
+	}
+
+
+}
+
+
+DATA
+
+Object: Root C	1
+
+Object: SECTOR C	1
+Var: mp 0 s + n p
+Var: mp_2 0 s + n n
+Var: ap_2 0 s + n n
+Var: ap 0 s + n p
+Var: exit 0 n + n n
+Param: switch_entry 0 n + n n	2
+Var: entry 0 n + n n
+
+Object: FIRM C	5
+Var: p 1 s + n n	7.85482520227947	8.73944116445312	7.34826652773158	6.85741281136236	7.36270528597476
+Var: dp 0 n + n n
+Var: c 0 n + n n
+Param: theta 0 n + n n	0.5	0.5	0.5	0.5	0.5
+Param: mu 0 n + n n	0.5	0.5	0.5	0.5	0.5
+Param: avg 0 n + n n	5	5	5	5	5
+Param: sd 0 n + n n	1	1	1	1	1
+
+SIM_NUM 1
+SEED 4
+MAX_STEP 100
+EQUATION fun_Exercise_2.cpp
+MODELREPORT report_Sim1.html
+
+DESCRIPTION
+
+Object_Root
+
+END_DESCRIPTION
+
+Object_SECTOR
+
+END_DESCRIPTION
+
+Variable_mp
+Compute the maximum price among firms in each period
+END_DESCRIPTION
+
+Variable_mp_2
+
+END_DESCRIPTION
+
+Variable_ap_2
+
+END_DESCRIPTION
+
+Variable_ap
+
+END_DESCRIPTION
+
+Variable_exit
+
+END_DESCRIPTION
+
+Parameter_switch_entry
+
+_INIT_
+All 1 instances equal to 2
+END_DESCRIPTION
+
+Variable_entry
+
+END_DESCRIPTION
+
+Object_FIRM
+
+END_DESCRIPTION
+
+Variable_p
+p_(i,t) = theta_i*dp_(i,t) + (1 - theta_i)*ap_(t-1)
+ where:
+ p_(i,t) is the price of firm i in period t;
+ theta_i is the degree of monopoly of firm i(parameter);
+ dp_(i,t) is the desired price of firm i in period t;
+ ap_(t-1) is the average price in period t-1;
+_INIT_
+All 5 instances equal to 1
+END_DESCRIPTION
+
+Variable_dp
+dp_(i,t) = (1 + µ_i)*c_(i,t)
+ where:
+ µ_i is the markup of firm i (parameter);
+ c_(i,t) is the cost of firm i in period t;
+END_DESCRIPTION
+
+Variable_c
+c_(i,t) ~ N(avg, sd)
+END_DESCRIPTION
+
+Parameter_theta
+
+_INIT_
+All 5 instances equal to 0.5
+END_DESCRIPTION
+
+Parameter_mu
+
+_INIT_
+All 5 instances equal to 0.5
+END_DESCRIPTION
+
+Parameter_avg
+
+_INIT_
+All 5 instances equal to 5
+END_DESCRIPTION
+
+Parameter_sd
+
+_INIT_
+All 5 instances equal to 1
+END_DESCRIPTION
+
+
+DOCUOBSERVE
+
+END_DOCUOBSERVE
+
+
+DOCUINITIAL
+
+END_DOCUINITIAL
+
+
+EQ_FILE
+//#define EIGENLIB			// uncomment to use Eigen linear algebra library
+
+#include "fun_head_fast.h"
+
+// do not add Equations in this area
+
+MODELBEGIN
+
+// insert your equations here, ONLY between the MODELBEGIN and MODELEND words
+
+/////////////////////////
+///// AVERAGE PRICE /////
+/////////////////////////
+
+EQUATION("ap")
+
+v[0] = 0;
+v[2] = 0;
+
+CYCLE(cur, "FIRM")
+	{
+	v[1] = VS(cur, "p");
+	v[0] = v[0] + v[1]; //sum of prices
+	v[2] = v[2] + 1;	//count firms
+	}
+
+RESULT(v[0]/v[2])
+
+/*
+ou
+*/
+
+EQUATION("ap_2")
+RESULT(AVE("p"))
+
+/////////////////////////
+////////// PRICE ////////
+/////////////////////////
+
+EQUATION("p")
+// p_(i,t) = theta_i*dp_(i,t) + (1 - theta_i)*ap_(t-1)
+/*
+ where:
+ p_(i,t) is the price of firm i in period t;
+ theta_i is the degree of monopoly of firm i(parameter);
+ dp_(i,t) is the desired price of firm i in period t;
+ ap_(t-1) is the average price in period t-1; 
+*/
+
+v[0] = V("theta"); // theta is the degree of monopoly of firm i (parameter);
+v[1] = V("dp"); // dp is the desired price;
+v[2] = AVEL("p", 1);
+
+RESULT(v[0]*v[1] + (1-v[0])*v[2])
+
+
+/////////////////////////
+///// DESIRED PRICE /////
+/////////////////////////
+
+EQUATION("dp")
+// dp_(i,t) = (1 + µ_i)*c_(i,t)
+/*
+ where:
+ µ_i is the markup of firm i (parameter);
+ c_(i,t) is the cost of firm i in period t;
+*/
+	
+v[0] = V("mu"); // mu is the markup of firm i (parameter);
+v[1] = V("c");
+
+RESULT((1 + v[0])*v[1])
+
+
+/////////////////////////
+////////// COST /////////
+/////////////////////////
+
+EQUATION("c")
+//	 c_(i,t) ~ N(avg, sd)
+
+v[0] = V("avg");
+v[1] = V("sd");
+
+RESULT(norm(v[0], v[1]))
+
+
+/////////////////////////
+///// MAXIMUM PRICE /////
+/////////////////////////
+
+EQUATION("mp"); //mp is maximum price;
+
+/*
+Compute the maximum price among firms in each period
+*/
+
+v[0] = 0; // Initialize v[0] to store the maximum price
+
+CYCLE(cur, "FIRM")
+	{
+	v[1] = VS(cur, "p"); // Find the maximum price among firms in the current sector
+	
+    // Check if v[1] is greater than the current maximum stored in v[0]
+    if (v[1] > v[0])
+    	{
+		v[0] = v[1]; // Update v[0] with the new maximum price
+    	}
+	}
+
+RESULT(v[0]) // Return the maximum price for the current period
+
+/*
+ou
+*/
+
+EQUATION("mp_2");
+
+RESULT(MAX("p"))
+
+
+/////////////////////////
+////////// EXIT /////////
+/////////////////////////
+
+EQUATION("exit")
+
+	v[1] = COUNT("FIRM");
+	
+	if(v[1] > 1)
+		{
+		v[0] = V("mp");
+		cur = SEARCH_CND("p", v[0]);
+		DELETE(cur);
+		}
+		
+RESULT(0)
+
+
+/////////////////////////
+///////// ENTRY /////////
+/////////////////////////
+
+EQUATION("entry")
+
+	v[1] = V("switch_entry"); // 0 = no entry; 1 = minimum price; 2 = random price.
+	if(v[1] == 1)
+		{
+		v[0] = MIN("p");
+		cur = SEARCH_CND("p", v[0]);
+		ADDOBJ_EX("FIRM", cur);
+		}
+	if(v[1] == 2)
+		{
+		cur = RNDDRAW_FAIR("FIRM");
+		ADDOBJ_EX("FIRM", cur);
+		}
+		
+RESULT(0)
+
+
+
+MODELEND
+
+// do not add Equations in this area
+
+void close_sim( void )
+{
+	// close simulation special commands go here
+}
+
+END_EQ_FILE
