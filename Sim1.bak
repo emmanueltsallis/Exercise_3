@@ -14,6 +14,14 @@ Label Root
 			Param: mu
 			Param: avg
 			Param: sd
+			Param: q
+			Var: co
+			Param: ms
+			Param: epsilon_p
+			Param: epsilon_q
+			Param: q_min
+			Param: q_max
+			Param: mu_i
 
 		}
 
@@ -24,6 +32,7 @@ Label Root
 		Var: exit
 		Param: switch_entry
 		Var: entry
+		Param: mu_j
 
 	}
 
@@ -36,13 +45,14 @@ DATA
 Object: Root C	1
 
 Object: SECTOR C	1
-Var: mp 0 s + n p
+Var: mp 0 s + n n
 Var: mp_2 0 s + n n
 Var: ap_2 0 s + n n
-Var: ap 0 s + n p
+Var: ap 0 s + n n
 Var: exit 0 n + n n
 Param: switch_entry 0 n + n n	2
 Var: entry 0 n + n n
+Param: mu_j 0 n + n n	0.1
 
 Object: FIRM C	5
 Var: p 1 s + n n	7.85482520227947	8.73944116445312	7.34826652773158	6.85741281136236	7.36270528597476
@@ -52,6 +62,14 @@ Param: theta 0 n + n n	0.5	0.5	0.5	0.5	0.5
 Param: mu 0 n + n n	0.5	0.5	0.5	0.5	0.5
 Param: avg 0 n + n n	5	5	5	5	5
 Param: sd 0 n + n n	1	1	1	1	1
+Param: q 1 n + n n	1	1	1	1	1
+Var: co 0 n + n n
+Param: ms 0 n + n n	0.2	0.2	0.2	0.2	0.2
+Param: epsilon_p 0 n + n n	1	1	1	1	1
+Param: epsilon_q 0 n + n n	1	1	1	1	1
+Param: q_min 0 n + n n	0	0	0	0	0
+Param: q_max 0 n + n n	1	1	1	1	1
+Param: mu_i 0 n + n n	0.5	0.5	0.5	0.5	0.5
 
 SIM_NUM 1
 SEED 4
@@ -97,6 +115,12 @@ END_DESCRIPTION
 
 Variable_entry
 
+END_DESCRIPTION
+
+Parameter_mu_j
+
+_INIT_
+All 1 instances equal to 0.1
 END_DESCRIPTION
 
 Object_FIRM
@@ -149,6 +173,54 @@ _INIT_
 All 5 instances equal to 1
 END_DESCRIPTION
 
+Parameter_q
+q_(i,t) = q_(i,t-1) + c_t
+_INIT_
+Instances from 1 to 2 equal to 1
+Instances from 1 to 2 equal to 1
+Instances from 1 to 1000 equal to 1
+END_DESCRIPTION
+
+Variable_co
+co_(i,t) = (q_(i,t)^epsilon_q) / (p_(i,t)^epsilon_p)
+END_DESCRIPTION
+
+Parameter_ms
+ms_(i,t) = ms_(i,t-1) * [1 + mu_j * (co_(i,t) / avgco_(j,t) - 1)]
+_INIT_
+All 5 instances equal to 0.2
+END_DESCRIPTION
+
+Parameter_epsilon_p
+
+_INIT_
+All 5 instances equal to 1
+END_DESCRIPTION
+
+Parameter_epsilon_q
+
+_INIT_
+All 5 instances equal to 1
+END_DESCRIPTION
+
+Parameter_q_min
+
+_INIT_
+All 5 instances equal to 0
+END_DESCRIPTION
+
+Parameter_q_max
+
+_INIT_
+All 5 instances equal to 1
+END_DESCRIPTION
+
+Parameter_mu_i
+
+_INIT_
+All 5 instances equal to 0.5
+END_DESCRIPTION
+
 
 DOCUOBSERVE
 
@@ -177,20 +249,20 @@ MODELBEGIN
 
 EQUATION("ap")
 
-v[0] = 0;
-v[2] = 0;
+	v[0] = 0;
+	v[2] = 0;
 
-CYCLE(cur, "FIRM")
-	{
-	v[1] = VS(cur, "p");
-	v[0] = v[0] + v[1]; //sum of prices
-	v[2] = v[2] + 1;	//count firms
-	}
+	CYCLE(cur, "FIRM")
+		{
+		v[1] = VS(cur, "p");
+		v[0] = v[0] + v[1]; //sum of prices
+		v[2] = v[2] + 1;	//count firms
+		}
 
 RESULT(v[0]/v[2])
 
 /*
-ou
+or
 */
 
 EQUATION("ap_2")
@@ -210,9 +282,9 @@ EQUATION("p")
  ap_(t-1) is the average price in period t-1; 
 */
 
-v[0] = V("theta"); // theta is the degree of monopoly of firm i (parameter);
-v[1] = V("dp"); // dp is the desired price;
-v[2] = AVEL("p", 1);
+	v[0] = V("theta"); // theta is the degree of monopoly of firm i (parameter);
+	v[1] = V("dp"); // dp is the desired price;
+	v[2] = AVEL("p", 1);
 
 RESULT(v[0]*v[1] + (1-v[0])*v[2])
 
@@ -229,8 +301,8 @@ EQUATION("dp")
  c_(i,t) is the cost of firm i in period t;
 */
 	
-v[0] = V("mu"); // mu is the markup of firm i (parameter);
-v[1] = V("c");
+	v[0] = V("mu_i"); // mu is the markup of firm i (parameter);
+	v[1] = V("c");
 
 RESULT((1 + v[0])*v[1])
 
@@ -242,8 +314,8 @@ RESULT((1 + v[0])*v[1])
 EQUATION("c")
 //	 c_(i,t) ~ N(avg, sd)
 
-v[0] = V("avg");
-v[1] = V("sd");
+	v[0] = V("avg");
+	v[1] = V("sd");
 
 RESULT(norm(v[0], v[1]))
 
@@ -258,27 +330,26 @@ EQUATION("mp"); //mp is maximum price;
 Compute the maximum price among firms in each period
 */
 
-v[0] = 0; // Initialize v[0] to store the maximum price
+	v[0] = 0; // Initialize v[0] to store the maximum price
 
-CYCLE(cur, "FIRM")
-	{
-	v[1] = VS(cur, "p"); // Find the maximum price among firms in the current sector
+	CYCLE(cur, "FIRM")
+		{
+		v[1] = VS(cur, "p"); // Find the maximum price among firms in the current sector
 	
-    // Check if v[1] is greater than the current maximum stored in v[0]
-    if (v[1] > v[0])
-    	{
-		v[0] = v[1]; // Update v[0] with the new maximum price
-    	}
-	}
+    	// Check if v[1] is greater than the current maximum stored in v[0]
+    	if (v[1] > v[0])
+    		{
+			v[0] = v[1]; // Update v[0] with the new maximum price
+    		}
+		}
 
 RESULT(v[0]) // Return the maximum price for the current period
 
 /*
-ou
+or
 */
 
 EQUATION("mp_2");
-
 RESULT(MAX("p"))
 
 
@@ -311,7 +382,8 @@ EQUATION("entry")
 		{
 		v[0] = MIN("p");
 		cur = SEARCH_CND("p", v[0]);
-		ADDOBJ_EX("FIRM", cur);
+		cur2 = ADDOBJ_EX("FIRM", cur);
+		WRITES(cur2, "theta", 0.1);
 		}
 	if(v[1] == 2)
 		{
@@ -322,7 +394,53 @@ EQUATION("entry")
 RESULT(0)
 
 
+/////////////////////////
+////// MARKET SHARE /////
+/////////////////////////
 
+EQUATION("ms")
+
+// ms_(i,t) = ms_(i,t-1) * [1 + mu_j * (co_(i,t) / avgco_(j,t) - 1)]
+
+	v[0] = VL("ms", 1); // ms_(i,t-1)
+	v[1] = V("mu_j"); // mu_j (market share adjustment parameter)
+	v[2] = V("co"); // co_(i,t)
+	v[3] = AVE("co"); // avgco_(j,t)
+
+RESULT(v[0] * (1 + v[1] * (v[2] / v[3] - 1)))
+
+
+/////////////////////////
+//// COMPETITIVENESS ////
+/////////////////////////
+
+EQUATION("co")
+
+// co_(i,t) = (q_(i,t)^epsilon_q) / (p_(i,t)^epsilon_p)
+
+	v[0] = V("q"); // q_(i,t)
+	v[1] = V("p"); // p_(i,t)
+	v[2] = V("epsilon_q"); // epsilon_q
+	v[3] = V("epsilon_p"); // epsilon_p
+
+RESULT(pow(v[0], v[2]) / pow(v[1], v[3]))
+
+/////////////////////////
+//////// QUALITY ////////
+/////////////////////////
+
+EQUATION("q")
+
+// q_(i,t) = q_(i,t-1) + c_t
+
+	v[0] = VL("q", 1); // q_(i,t-1)
+	v[1] = V("q_min");
+	v[2] = V("q_max");
+	v[3] = uniform(v[1], v[2]); // Generate a random component following a uniform distribution
+
+RESULT(v[0] + v[3])
+
+	
 MODELEND
 
 // do not add Equations in this area
