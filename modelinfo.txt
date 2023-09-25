@@ -12,5 +12,5 @@ Exercise_3
 Sim2.lsd
 SECTOR
 1
-5
+8
 0.0

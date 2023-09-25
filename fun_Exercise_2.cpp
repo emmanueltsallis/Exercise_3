@@ -205,6 +205,28 @@ EQUATION("q")
 
 RESULT(v[0] + v[3])
 
+
+/////////////////////////
+////// CONSISTENCY //////
+/////////////////////////
+
+EQUATION("consistency")
+	
+	v[0] = 0;							// Initialize v[0] to store the market share of each firm
+	CYCLE(cur, "FIRM"){					// Cycle through each firm in order to:
+		v[1] = VS(cur, "ms");			// Gather the market share; and
+		v[0] = v[0] + v[1];}			// Update v[0] summing it up to the previous value.
+		
+	if (v[0] != 1.0) 					// Check if the sum is not equal to 1
+		{								// If not consistent, normalize the market shares
+		CYCLE(cur, "FIRM"){
+			v[1] = VS(cur, "ms");		// Get the current market share
+			v[2] = v[1] / v[0];			// Normalize it by dividing by the sum
+			WRITES(cur, "ms", v[2]);}	// Update the current market share with the normalized value
+		}
+
+RESULT(v[0]) 							// Return the sum of the market shares in the sector (should be 1 after normalization)
+
 	
 MODELEND
 
