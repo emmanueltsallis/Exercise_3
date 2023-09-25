@@ -125,7 +125,6 @@ RESULT(MAX("p"))
 EQUATION("exit")
 
 	v[1] = COUNT("FIRM");
-	
 	if(v[1] > 1)
 		{
 		v[0] = V("mp");
@@ -142,18 +141,18 @@ RESULT(0)
 
 EQUATION("entry")
 
-	v[1] = V("switch_entry"); // 0 = no entry; 1 = minimum price; 2 = random price.
-	if(v[1] == 1)
+	v[1] = V("switch_entry"); 				// 0 = no entry; 1 = minimum price; 2 = random price.
+	if(v[1] == 1)							// If the value of switch_entry is 1 (minimum price entry):
 		{
-		v[0] = MIN("p");
-		cur = SEARCH_CND("p", v[0]);
-		cur2 = ADDOBJ_EX("FIRM", cur);
-		WRITES(cur2, "theta", 0.1);
+		v[0] = MIN("p");					// Calculate the minimum price among firms and store it in v[0].
+		cur = SEARCH_CND("p", v[0]);		// Find the firm with the minimum price.
+		cur2 = ADDOBJ_EX("FIRM", cur);		// Create a new firm object by copying the one with the minimum price.
+		WRITES(cur2, "theta", 0.1);			// Set the parameter "theta" of the new firm to 0.1.
 		}
-	if(v[1] == 2)
+	if(v[1] == 2)							// If the value of switch_entry is 2 (random price entry):
 		{
-		cur = RNDDRAW_FAIR("FIRM");
-		ADDOBJ_EX("FIRM", cur);
+		cur = RNDDRAW_FAIR("FIRM");			// Randomly select an existing firm.
+		ADDOBJ_EX("FIRM", cur);				// Create a new firm object by copying the randomly selected firm.
 		}
 		
 RESULT(0)
@@ -228,6 +227,65 @@ EQUATION("consistency")
 RESULT(v[0]) 							// Return the sum of the market shares in the sector (should be 1 after normalization)
 
 	
+/////////////////////////
+//////// EXIT #2 ////////
+/////////////////////////	
+
+EQUATION("exit_2")
+	v[0] = V("threshold");				// Create a parameter called "threshold"
+	v[1] = COUNT("FIRM");
+	if(v[1] > 1)
+		{
+		CYCLE(cur, "FIRM")				// Start a loop that iterates through all the firms in the model.
+			{
+			v[2] = VS(cur, "ms");		// Retrieve the market share of the current firm and store it in v[1].
+			if (v[2] < v[0])
+				{						// Check if the market share of the current firm (v[1]) is less than the specified threshold (v[0]).
+				DELETE(cur);			// If the market share is below the threshold, delete (remove) the current firm from the model.
+				}
+			}
+		}
+RESULT(0)
+
+
+/////////////////////////
+/////// ENTRY #2 ////////
+/////////////////////////
+
+EQUATION("entry_2")
+	v[0] = V("switch_entry_2"); 			// Get the switch parameter value
+	if (v[0] == 1) 							// Create a new firm by copying the one with the highest Market Share.
+		{
+		v[1] = MAX("ms");					// Find the highest Market Share of the sector.
+		cur = SEARCH_CND("ms", v[1]);		// Identify the firm with the highest market share.
+		cur2 = ADDOBJ_EX("FIRM", cur);		// Create a new firm object by copying the one with the highest market share.
+		}
+	if(v[0] == 2)							// If the value of switch_entry is 2 (random price entry):
+		{
+		cur3 = RNDDRAW_FAIR("FIRM");		// Randomly select an existing firm.
+		ADDOBJ_EX("FIRM", cur3);			// Create a new firm object by copying the randomly selected firm.
+		}
+RESULT(0)
+
+
+//////////////////////////
+////// INVERSE HHI ///////
+//////////////////////////
+
+EQUATION("Inv_HHI")
+	v[0] = 0;							// Initialize v[0] to store the sum of squared market shares
+	CYCLE(cur, "FIRM"){					// Cycle through each firm in the sector to:
+		v[1] = VS(cur, "ms");			// Get the market share of the current firm
+		v[0] += pow(v[1], 2);			// Add the squared market share to the sum
+	}
+	// Calculate the Inverse HHI
+	if (v[0] != 0.0) {					// Check if the sum of squared market shares is not zero
+		v[0] = 1.0 / v[0];				// Take the reciprocal of the sum to compute the Inverse HHI
+	}
+RESULT(v[0]) 							// Return the Inverse HHI for the sector
+
+
+
 MODELEND
 
 // do not add Equations in this area

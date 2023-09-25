@@ -1,3 +1,3 @@
-ap ap_2 c co consistency dp entry exit mp mp_2 ms p q
-avg epsilon_p epsilon_q mu_i mu_j q_max q_min sd switch_entry theta
+ap ap_2 c co consistency dp entry entry_2 exit exit_2 Inv_HHI mp mp_2 ms p q
+avg epsilon_p epsilon_q mu_i mu_j q_max q_min sd switch_entry switch_entry_2 theta threshold
 FIRM
